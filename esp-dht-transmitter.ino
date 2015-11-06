@@ -1,16 +1,28 @@
 #include <ESP8266WiFi.h>
 #include "DHT.h"
+#include <TM1637Display.h>
 #include "sensor-settings.h"
 
 // DHT-22 temp/humidity sensor on pin 2
 DHT dht(2, DHT22);
 
-const char* device   = "esp-dht";
+#define dispClockPin 4
+#define dispDioPin 5
+TM1637Display dd(dispClockPin, dispDioPin);
+
+float h;
+float t;
 
 WiFiClient client;
 
 void setup() {
-  //dht.begin();
+  read();  
+  
+  dd.setBrightness(0);
+  dd.setColon(false);
+  dd.showNumberDec(0, false, 4, 0);
+
+  dht.begin();
   Serial.begin(115200);
   delay(10);
 
@@ -34,28 +46,51 @@ void setup() {
 }
 
 void loop() {
-  measureAndTransmit();
+  delay(2000);
+
+  read();  
+  transmit(h, t);
   if (DEEP_SLEEP) {
     Serial.println("Feeling sleepy");
     ESP.deepSleep(SLEEP_SECS * 1000000, WAKE_RF_DEFAULT);
   }
+  Serial.println("Delaying...");
   delay(SLEEP_SECS * 1000);
+  Serial.println("...Done. Starting again");
+  dd.setBrightness(0);
 }
 
-void measureAndTransmit() {
-  float h = readHumidity();
-  float t = readTemperature();
+void read() {
+  h = readHumidity();
+  t = readTemperature();
 
-  connectToHost();
+  dd.setBrightness(8);
+  dd.showNumberDec(t, false, 4, 0);
+}
 
-  client.print("{\"humidity\": "); client.print(h);
-  client.print(", \"temperature\": "); client.print(t);
-  client.print(", \"location\": \""); client.print(location); client.print("\"");
-  client.print(", \"device\": \""); client.print(device); client.print("\"");
-  client.println("}");
-  client.flush();
-  client.stop();
-  Serial.println("Temperature and humidity sent");
+void transmit(float h, float t) {
+  
+  if (connectToHost()) {
+    
+    client.print("{\"humidity\": "); client.print(h);
+    client.print(", \"temperature\": "); client.print(t);
+    client.print(", \"device\": \""); client.print(device); client.print("\"");
+    client.println("}");
+    
+    /*
+    HTTP POST doesn't seem to work right now. Server won't parse the body
+    client.println("POST /event HTTP/1.0");
+    client.println("Content-Type: application/json");
+    client.println();
+    client.print("{\"type\": \"temperature\"");
+    client.print(",\"location\": \""); client.print(location); client.print("\"");
+    client.print(",\"value\": "); client.print(t); client.print("}");
+    client.println();
+    */
+    client.flush();
+    client.stop();
+    Serial.println("Temperature and humidity sent");    
+  }
 }
 
 float readHumidity() {
@@ -75,7 +110,7 @@ float readTemperature() {
 }
 
 
-void connectToHost() {
+int connectToHost() {
   Serial.print("connecting to ");
   Serial.print(host);
   Serial.print(":");
@@ -83,8 +118,9 @@ void connectToHost() {
 
   if (!client.connect(host, port)) {
     Serial.println("connection failed");
-    return;
+    return false;
   }
 
   Serial.println("Connected");
+  return true;
 }
