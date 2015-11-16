@@ -1,28 +1,14 @@
 #include <ESP8266WiFi.h>
 #include "DHT.h"
-#include <TM1637Display.h>
 #include "sensor-settings.h"
-
-// DHT-22 temp/humidity sensor on pin 2
-DHT dht(2, DHT22);
-
-#define dispClockPin 4
-#define dispDioPin 5
-TM1637Display dd(dispClockPin, dispDioPin);
-
-float h;
-float t;
+#include "esp-dht-transmitter.h"
 
 WiFiClient client;
 
-void setup() {
-  read();  
-  
-  dd.setBrightness(0);
-  dd.setColon(false);
-  dd.showNumberDec(0, false, 4, 0);
-
-  dht.begin();
+void setup() {  
+  for (int i=0; i < sensor_count; i++) {
+    dht[i].begin();  
+  }
   Serial.begin(115200);
   delay(10);
 
@@ -48,8 +34,12 @@ void setup() {
 void loop() {
   delay(2000);
 
-  read();  
-  transmit(h, t);
+  for (int i = 0; i < sensor_count; i++) {
+    temp_hum th = read_values(i);
+    transmit(i, th);
+  }
+  client.stop();
+
   if (DEEP_SLEEP) {
     Serial.println("Feeling sleepy");
     ESP.deepSleep(SLEEP_SECS * 1000000, WAKE_RF_DEFAULT);
@@ -57,23 +47,20 @@ void loop() {
   Serial.println("Delaying...");
   delay(SLEEP_SECS * 1000);
   Serial.println("...Done. Starting again");
-  dd.setBrightness(0);
 }
 
-void read() {
-  h = readHumidity();
-  t = readTemperature();
-
-  dd.setBrightness(8);
-  dd.showNumberDec(t, false, 4, 0);
+temp_hum read_values(int sensor_index) {
+  temp_hum result;  
+  result.hum = readHumidity(sensor_index);
+  result.temp = readTemperature(sensor_index);
+  return result;
 }
 
-void transmit(float h, float t) {
-  
+void transmit(int sensor_index, temp_hum th) {
   if (connectToHost()) {
-    
-    client.print("{\"humidity\": "); client.print(h);
-    client.print(", \"temperature\": "); client.print(t);
+    client.print("{\"humidity\": "); client.print(th.hum);
+    client.print(", \"temperature\": "); client.print(th.temp);
+    client.print(", \"sensor\": \""); client.print(sensor_index); client.print("\"");
     client.print(", \"device\": \""); client.print(device); client.print("\"");
     client.println("}");
     
@@ -88,21 +75,20 @@ void transmit(float h, float t) {
     client.println();
     */
     client.flush();
-    client.stop();
-    Serial.println("Temperature and humidity sent");    
+    Serial.print("Temperature and humidity from sensor "); Serial.print(sensor_index); Serial.println(" sent");    
   }
 }
 
-float readHumidity() {
-  float h = dht.readHumidity();
+float readHumidity(int sensor_index) {
+  float h = dht[sensor_index].readHumidity();
   Serial.print("Humidity: ");
   Serial.print(h);
   Serial.println("%");
   return h;
 }
 
-float readTemperature() {
-  float h = dht.readTemperature(0);
+float readTemperature(int sensor_index) {
+  float h = dht[sensor_index].readTemperature(0);
   Serial.print("Temperature: ");
   Serial.print(h);
   Serial.println("C");

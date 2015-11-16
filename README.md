@@ -1,8 +1,8 @@
 ## esp-dht-transmitter
 
 Software for sending temperature/humidity values over WiFi. Runs on 
-ESP8266. Built using Arduino IDE. Expects DHT-22 humidity sensor to be
-connected on GPIO2.
+ESP8266. Built using Arduino IDE. Supports multiple DHT-22 sensors connected to
+different GPIO pins.
 
 Requires [DHT-sensor-library](https://github.com/adafruit/DHT-sensor-library)
 and the [ESP8266 Arduino IDE](https://github.com/esp8266/Arduino) extension.
@@ -17,11 +17,17 @@ const char* password = "<my wifi password>";
 const char* host = "<server ip>";
 const int   port = <server port>;
 
-const char* location = "livingroom";
+const char* device = "my-esp-transmitter";
+
+#define sensor_count 2
+DHT dht[] = { DHT(2, DHT22), DHT(4, DHT22) };
 
 #define DEEP_SLEEP 0   // set to 1 to enable deep sleep
 #define SLEEP_SECS 60  // interval between sending
 ```
+
+Make sure that `sensor_count` matches to the number of sensors defined on the following line, where you define
+sensor types and their GPIO pins.
 
 I use my `sensor-server` project as the server that accepts the connections
 from my sensors. You may experiment simply with `nc -k -l 5000` as well.
