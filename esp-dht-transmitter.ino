@@ -1,3 +1,4 @@
+#include <EEPROM.h>
 #include <ESP8266WiFi.h>
 #include "DHT.h"
 #include "sensor-settings.h"
@@ -5,44 +6,67 @@
 
 WiFiClient client;
 
+
 void setup() {  
+  EEPROM.begin(128);
   for (int i=0; i < sensor_count; i++) {
     dht[i].begin();  
   }
   Serial.begin(115200);
-  delay(10);
-
   Serial.println();
-  Serial.println();
-  Serial.print("Connecting to ");
-  Serial.println(ssid);
+}
 
-  WiFi.mode(WIFI_AP_STA);
-  WiFi.begin(ssid, password);
+void connectToWifi() {  
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.print("Connecting to ");
+    Serial.println(ssid);
   
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
+    WiFi.mode(WIFI_AP_STA);
+    WiFi.begin(ssid, password);
+    
+    while (WiFi.status() != WL_CONNECTED) {
+      delay(100);
+      Serial.print(".");
+    }
+  
+    Serial.println("");
+    Serial.println("WiFi connected");  
+    Serial.println("IP address: ");
+    Serial.println(WiFi.localIP());      
   }
-
-  Serial.println("");
-  Serial.println("WiFi connected");  
-  Serial.println("IP address: ");
-  Serial.println(WiFi.localIP());  
 }
 
 void loop() {
-  delay(2000);
-
+  delay(1000);
+  int anythingToSend = false;
   for (int i = 0; i < sensor_count; i++) {
-    temp_hum th = read_values(i);
-    transmit(i, th);
+    temp_hum prev = readFromStorage(i);
+    Serial.print("Previous "); printValues(prev);
+    if (prev.send) {
+      transmit(i, prev);
+      prev.send = false;
+      writeToStorage(i, prev); // reset send flag
+    } else {
+      temp_hum th = read_values(i);
+      Serial.print("Measured "); printValues(th);
+      if (abs(th.temp - prev.temp) > TEMP_SEND_THRESHOLD || abs(th.hum - prev.hum) > HUM_SEND_THRESHOLD) {
+        Serial.println("Marking for send");
+        th.send = true;
+        anythingToSend = true;
+      }
+      writeToStorage(i, th);
+    }
   }
+  
   client.stop();
-
   if (DEEP_SLEEP) {
-    Serial.println("Feeling sleepy");
-    ESP.deepSleep(SLEEP_SECS * 1000000, WAKE_RF_DEFAULT);
+    if (anythingToSend) {
+      Serial.println("Short sleep");
+      ESP.deepSleep(1000000, WAKE_RF_DEFAULT);
+    } else {
+      Serial.println("Long sleep");
+      ESP.deepSleep(SLEEP_SECS * 1000000, WAKE_RF_DISABLED);
+    }    
   }
   Serial.println("Delaying...");
   delay(SLEEP_SECS * 1000);
@@ -51,12 +75,14 @@ void loop() {
 
 temp_hum read_values(int sensor_index) {
   temp_hum result;  
+  result.send = false;
   result.hum = readHumidity(sensor_index);
   result.temp = readTemperature(sensor_index);
   return result;
 }
 
 void transmit(int sensor_index, temp_hum th) {
+  connectToWifi();
   if (connectToHost()) {
     client.print("{\"humidity\": "); client.print(th.hum);
     client.print(", \"temperature\": "); client.print(th.temp);
@@ -80,21 +106,20 @@ void transmit(int sensor_index, temp_hum th) {
 }
 
 float readHumidity(int sensor_index) {
-  float h = dht[sensor_index].readHumidity();
+  return dht[sensor_index].readHumidity();  
+}
+
+float printValues(temp_hum values) {
   Serial.print("Humidity: ");
-  Serial.print(h);
-  Serial.println("%");
-  return h;
+  Serial.print(values.hum);
+  Serial.print("% ,Temperature: ");
+  Serial.print(values.temp);
+  Serial.println("C");
 }
 
 float readTemperature(int sensor_index) {
-  float h = dht[sensor_index].readTemperature(0);
-  Serial.print("Temperature: ");
-  Serial.print(h);
-  Serial.println("C");
-  return h;
+  return dht[sensor_index].readTemperature(0);
 }
-
 
 int connectToHost() {
   Serial.print("connecting to ");
@@ -109,4 +134,23 @@ int connectToHost() {
 
   Serial.println("Connected");
   return true;
+}
+
+void writeToStorage(int index, temp_hum value)
+{
+   int ee = index * sizeof(value);
+   byte* p = (byte*)(void*)&value;
+   for (int i = 0; i < sizeof(value); i++)
+       EEPROM.write(ee++, *p++);
+   EEPROM.commit();
+}
+
+temp_hum readFromStorage(int index)
+{
+   temp_hum value;
+   int ee = index * sizeof(value);
+   byte* p = (byte*)(void*)&value;
+   for (int i = 0; i < sizeof(value); i++)
+       *p++ = EEPROM.read(ee++);
+   return value;
 }

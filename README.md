@@ -24,6 +24,9 @@ DHT dht[] = { DHT(2, DHT22), DHT(4, DHT22) };
 
 #define DEEP_SLEEP 0   // set to 1 to enable deep sleep
 #define SLEEP_SECS 60  // interval between sending
+
+#define TEMP_SEND_THRESHOLD 1.0
+#define HUM_SEND_THRESHOLD 1.0
 ```
 
 Make sure that `sensor_count` matches to the number of sensors defined on the following line, where you define
