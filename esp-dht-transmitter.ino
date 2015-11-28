@@ -53,8 +53,8 @@ void loop() {
         Serial.println("Marking for send");
         th.send = true;
         anythingToSend = true;
+        writeToStorage(i, th);
       }
-      writeToStorage(i, th);
     }
   }
   
