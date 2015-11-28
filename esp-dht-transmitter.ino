@@ -42,14 +42,14 @@ void loop() {
   for (int i = 0; i < sensor_count; i++) {
     temp_hum prev = readFromStorage(i);
     Serial.print("Previous "); printValues(prev);
-    if (prev.send) {
+    if (prev.send && isValid(prev)) {
       transmit(i, prev);
       prev.send = false;
       writeToStorage(i, prev); // reset send flag
     } else {
       temp_hum th = read_values(i);
       Serial.print("Measured "); printValues(th);
-      if (abs(th.temp - prev.temp) > TEMP_SEND_THRESHOLD || abs(th.hum - prev.hum) > HUM_SEND_THRESHOLD) {
+      if (!isValid(prev) || abs(th.temp - prev.temp) > TEMP_SEND_THRESHOLD || abs(th.hum - prev.hum) > HUM_SEND_THRESHOLD) {
         Serial.println("Marking for send");
         th.send = true;
         anythingToSend = true;
@@ -71,6 +71,10 @@ void loop() {
   Serial.println("Delaying...");
   delay(SLEEP_SECS * 1000);
   Serial.println("...Done. Starting again");
+}
+
+int isValid(temp_hum values) {
+  return !isnan(values.hum) && !isnan(values.temp);
 }
 
 temp_hum read_values(int sensor_index) {
