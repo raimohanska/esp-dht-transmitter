@@ -43,7 +43,7 @@ void loop() {
     temp_hum prev = readFromStorage(i);
     Serial.print("Previous "); printValues(prev);
     if (prev.send && isValid(prev)) {
-      transmit(i, prev);
+      int success = transmit(i, prev);     
       prev.send = false;
       writeToStorage(i, prev); // reset send flag
     } else {
@@ -105,8 +105,10 @@ void transmit(int sensor_index, temp_hum th) {
     client.println();
     */
     client.flush();
-    Serial.print("Temperature and humidity from sensor "); Serial.print(sensor_index); Serial.println(" sent");    
+    Serial.print("Temperature and humidity from sensor "); Serial.print(sensor_index); Serial.println(" sent");
+    return true;
   }
+  return false;
 }
 
 float readHumidity(int sensor_index) {
