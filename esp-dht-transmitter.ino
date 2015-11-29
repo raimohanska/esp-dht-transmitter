@@ -4,8 +4,12 @@
 #include "sensor-settings.h"
 #include "esp-dht-transmitter.h"
 
-WiFiClient client;
+int magic = 847236345;
+int storageVersion = 1 + magic;
 
+temp_hum measurements[sensor_count];
+
+WiFiClient client;
 
 void setup() {  
   EEPROM.begin(128);
@@ -16,53 +20,68 @@ void setup() {
   Serial.println();
 }
 
-void connectToWifi() {  
-  if (WiFi.status() != WL_CONNECTED) {
-    Serial.print("Connecting to ");
-    Serial.println(ssid);
-  
-    WiFi.mode(WIFI_AP_STA);
-    WiFi.begin(ssid, password);
-    
-    while (WiFi.status() != WL_CONNECTED) {
-      delay(100);
-      Serial.print(".");
-    }
-  
-    Serial.println("");
-    Serial.println("WiFi connected");  
-    Serial.println("IP address: ");
-    Serial.println(WiFi.localIP());      
-  }
-}
+
 
 void loop() {
-  delay(1000);
-  int anythingToSend = false;
-  for (int i = 0; i < sensor_count; i++) {
-    temp_hum prev = readFromStorage(i);
-    Serial.print("Previous "); printValues(prev);
-    if (prev.age == 0 && isValid(prev)) {
-      int success = transmit(i, prev);     
+  app_state state = readState();  
+  int firstTime = (state.version != storageVersion);
+  state.version = storageVersion;
+  if (firstTime) {
+    state.shouldSend = false;
+    Serial.println("Storage version mismatch -> first time");
+  } else if (state.shouldSend) {
+    Serial.println("Sending previous values");
+  }
+
+  if (state.shouldSend) {
+    // Sending previous values
+    for (int i = 0; i < sensor_count; i++) {
+      temp_hum prev = readFromStorage(i);
+      if (isValid(prev)) {
+        int success = transmit(i, prev);     
+      } else {
+        Serial.print("Skipping sensor "); Serial.println(i);
+        Serial.print("Skipped values "); printValues(prev);
+      }
       prev.age++;
       writeToStorage(i, prev);
-    } else {
-      temp_hum th = read_values(i);
+    }
+    state.shouldSend = false;
+  } else {
+    delay(1000);
+    // Make new measurements
+    for (int i = 0; i < sensor_count; i++) {
+      temp_hum prev = readFromStorage(i);
+      Serial.print("Previous "); printValues(prev);
+      measurements[i] = read_values(i);
+      temp_hum th = measurements[i];
       Serial.print("Measured "); printValues(th);
-      if (isValid(th) && (!isValid(prev) || abs(th.temp - prev.temp) > TEMP_SEND_THRESHOLD || abs(th.hum - prev.hum) > HUM_SEND_THRESHOLD)) {
-        Serial.println("Marking for send");
-        anythingToSend = true;
-        writeToStorage(i, th);
+      if (firstTime || (isValid(th) && (!isValid(prev) || abs(th.temp - prev.temp) > TEMP_SEND_THRESHOLD || abs(th.hum - prev.hum) > HUM_SEND_THRESHOLD))) {
+        Serial.println("Sendable");
+        state.shouldSend = true;
       } else {
         prev.age++;
         writeToStorage(i, prev);
       }
+    }   
+  }
+
+  if (state.shouldSend) {
+    // found something to send -> store all valid new values for sending
+    for (int i = 0; i < sensor_count; i++) {
+        temp_hum th = measurements[i];
+        if (isValid(th) || firstTime) {
+          Serial.print("Storing sensor "); Serial.println(i);
+          writeToStorage(i, th);          
+        }
     }
   }
+
+  writeState(state);
   
   client.stop();
   if (DEEP_SLEEP) {
-    if (anythingToSend) {
+    if (state.shouldSend) {
       Serial.println("Short sleep");
       ESP.deepSleep(1000000, WAKE_RF_DEFAULT);
     } else {
@@ -122,7 +141,8 @@ float printValues(temp_hum values) {
   Serial.print(values.hum);
   Serial.print("% ,Temperature: ");
   Serial.print(values.temp);
-  Serial.println("C");
+  Serial.print("C, age: ");
+  Serial.println(values.age);
 }
 
 float readTemperature(int sensor_index) {
@@ -144,9 +164,15 @@ int connectToHost() {
   return true;
 }
 
+int memoryPos(int index) {
+  temp_hum value;
+  app_state state;
+  return sizeof(state) + index * sizeof(value);
+}
+
 void writeToStorage(int index, temp_hum value)
 {
-   int ee = index * sizeof(value);
+   int ee = memoryPos(index);
    byte* p = (byte*)(void*)&value;
    for (int i = 0; i < sizeof(value); i++)
        EEPROM.write(ee++, *p++);
@@ -156,9 +182,48 @@ void writeToStorage(int index, temp_hum value)
 temp_hum readFromStorage(int index)
 {
    temp_hum value;
-   int ee = index * sizeof(value);
+   int ee = memoryPos(index);
    byte* p = (byte*)(void*)&value;
    for (int i = 0; i < sizeof(value); i++)
        *p++ = EEPROM.read(ee++);
    return value;
+}
+
+void writeState(app_state value)
+{
+   int ee = 0;
+   byte* p = (byte*)(void*)&value;
+   for (int i = 0; i < sizeof(value); i++)
+       EEPROM.write(ee++, *p++);
+   EEPROM.commit();
+}
+
+app_state readState()
+{
+   int ee = 0;
+   app_state value;
+   byte* p = (byte*)(void*)&value;
+   for (int i = 0; i < sizeof(value); i++)
+       *p++ = EEPROM.read(ee++);
+   return value;
+}
+
+void connectToWifi() {  
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.print("Connecting to ");
+    Serial.println(ssid);
+  
+    WiFi.mode(WIFI_AP_STA);
+    WiFi.begin(ssid, password);
+    
+    while (WiFi.status() != WL_CONNECTED) {
+      delay(100);
+      Serial.print(".");
+    }
+  
+    Serial.println("");
+    Serial.println("WiFi connected");  
+    Serial.println("IP address: ");
+    Serial.println(WiFi.localIP());      
+  }
 }
