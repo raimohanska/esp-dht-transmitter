@@ -42,18 +42,20 @@ void loop() {
   for (int i = 0; i < sensor_count; i++) {
     temp_hum prev = readFromStorage(i);
     Serial.print("Previous "); printValues(prev);
-    if (prev.send && isValid(prev)) {
+    if (prev.age == 0 && isValid(prev)) {
       int success = transmit(i, prev);     
-      prev.send = false;
-      writeToStorage(i, prev); // reset send flag
+      prev.age++;
+      writeToStorage(i, prev);
     } else {
       temp_hum th = read_values(i);
       Serial.print("Measured "); printValues(th);
-      if (!isValid(prev) || abs(th.temp - prev.temp) > TEMP_SEND_THRESHOLD || abs(th.hum - prev.hum) > HUM_SEND_THRESHOLD) {
+      if (isValid(th) && (!isValid(prev) || abs(th.temp - prev.temp) > TEMP_SEND_THRESHOLD || abs(th.hum - prev.hum) > HUM_SEND_THRESHOLD)) {
         Serial.println("Marking for send");
-        th.send = true;
         anythingToSend = true;
         writeToStorage(i, th);
+      } else {
+        prev.age++;
+        writeToStorage(i, prev);
       }
     }
   }
@@ -74,18 +76,18 @@ void loop() {
 }
 
 int isValid(temp_hum values) {
-  return !isnan(values.hum) && !isnan(values.temp);
+  return !isnan(values.hum) && !isnan(values.temp) && values.age <= MAX_SKIP;
 }
 
 temp_hum read_values(int sensor_index) {
   temp_hum result;  
-  result.send = false;
+  result.age = 0;
   result.hum = readHumidity(sensor_index);
   result.temp = readTemperature(sensor_index);
   return result;
 }
 
-void transmit(int sensor_index, temp_hum th) {
+int transmit(int sensor_index, temp_hum th) {
   connectToWifi();
   if (connectToHost()) {
     client.print("{\"humidity\": "); client.print(th.hum);
