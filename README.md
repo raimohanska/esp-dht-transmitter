@@ -4,8 +4,8 @@ Software for sending temperature/humidity values over WiFi. Runs on
 ESP8266. Built using Arduino IDE. Supports multiple DHT-22 sensors connected to
 different GPIO pins.
 
-Requires [DHT-sensor-library](https://github.com/adafruit/DHT-sensor-library)
-and the [ESP8266 Arduino IDE](https://github.com/esp8266/Arduino) extension.
+Requires [DHT-sensor-library](https://github.com/adafruit/DHT-sensor-library), [ArduinoJson](https://github.com/bblanchon/ArduinoJson)
+and of course the [ESP8266 Arduino IDE](https://github.com/esp8266/Arduino) extension.
 
 Before opening this in Arduino IDE, create a file `sensor-settings.h` with 
 your sensor settings, including Wifi settings. Like this:
