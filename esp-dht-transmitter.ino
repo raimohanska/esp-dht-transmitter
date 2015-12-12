@@ -81,15 +81,13 @@ void loop() {
   writeState(state);
   
   client.stop();
-  if (DEEP_SLEEP) {
-    if (state.shouldSend) {
-      Serial.println("Short sleep");
-      ESP.deepSleep(1000000, WAKE_RF_DEFAULT);
-    } else {
-      Serial.println("Long sleep");
-      ESP.deepSleep(SLEEP_SECS * 1000000, WAKE_RF_DISABLED);
-    }    
-  }
+  if (state.shouldSend) {
+    Serial.println("Short sleep");
+    ESP.deepSleep(1000000, WAKE_RF_DEFAULT);
+  } else {
+    Serial.println("Long sleep");
+    ESP.deepSleep(SLEEP_SECS * 1000000, WAKE_RF_DISABLED);
+  }    
   Serial.println("Delaying...");
   delay(SLEEP_SECS * 1000);
   Serial.println("...Done. Starting again");

@@ -22,7 +22,6 @@ const char* device = "my-esp-transmitter";
 #define sensor_count 2
 DHT dht[] = { DHT(2, DHT22), DHT(4, DHT22) };
 
-#define DEEP_SLEEP 0   // set to 1 to enable deep sleep
 #define SLEEP_SECS 60  // interval between sending
 
 #define TEMP_SEND_THRESHOLD 1.0
