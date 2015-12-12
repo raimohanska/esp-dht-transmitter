@@ -1,5 +1,6 @@
 #include <EEPROM.h>
 #include <ESP8266WiFi.h>
+#include <ArduinoJson.h>
 #include "DHT.h"
 #include "sensor-settings.h"
 #include "esp-dht-transmitter.h"
@@ -107,26 +108,34 @@ temp_hum read_values(int sensor_index) {
 }
 
 int transmit(int sensor_index, temp_hum th) {
-  connectToWifi();
+  transmit(sensor_index, "temperature", th.temp);
+  transmit(sensor_index, "humidity", th.hum);
+}
+
+int transmit(int sensor_index, char* tyep, float value) {
+  if (!connectToWifi()) {
+    Serial.println("Wifi connection failed. Trying to restore connectivity");
+    ESP.deepSleep(1000000, WAKE_RF_DEFAULT);
+    delay(60000);
+  }
   if (connectToHost()) {
-    client.print("{\"humidity\": "); client.print(th.hum);
-    client.print(", \"temperature\": "); client.print(th.temp);
-    client.print(", \"sensor\": \""); client.print(sensor_index); client.print("\"");
-    client.print(", \"device\": \""); client.print(device); client.print("\"");
-    client.println("}");
-    
-    /*
-    HTTP POST doesn't seem to work right now. Server won't parse the body
     client.println("POST /event HTTP/1.0");
     client.println("Content-Type: application/json");
+    StaticJsonBuffer<200> jsonBuffer;
+    JsonObject& root = jsonBuffer.createObject();
+    root["type"] = tyep;
+    root["device"] = device;
+    root["sensor"] = sensor_index;
+    root["value"] = value;
+        
+    client.print("Content-Length: "); client.println(root.measureLength());
+    
     client.println();
-    client.print("{\"type\": \"temperature\"");
-    client.print(",\"location\": \""); client.print(location); client.print("\"");
-    client.print(",\"value\": "); client.print(t); client.print("}");
-    client.println();
-    */
+    root.printTo(client);
+    
     client.flush();
-    Serial.print("Temperature and humidity from sensor "); Serial.print(sensor_index); Serial.println(" sent");
+    Serial.print("Value for "); Serial.print(tyep);
+    Serial.print(" from sensor "); Serial.print(sensor_index); Serial.println(" sent");
     return true;
   }
   return false;
@@ -208,22 +217,31 @@ app_state readState()
    return value;
 }
 
-void connectToWifi() {  
+int connectToWifi() {  
+  int timeoutMs = 20000;
   if (WiFi.status() != WL_CONNECTED) {
     Serial.print("Connecting to ");
     Serial.println(ssid);
   
     WiFi.mode(WIFI_AP_STA);
     WiFi.begin(ssid, password);
-    
+
+    int elapsed = 0;
+    int d = 100;
     while (WiFi.status() != WL_CONNECTED) {
-      delay(100);
+      elapsed += d;
+      if (elapsed >= timeoutMs) {
+        Serial.println();
+        return false;
+      }
+      delay(d);
       Serial.print(".");
     }
   
-    Serial.println("");
+    Serial.println();
     Serial.println("WiFi connected");  
     Serial.println("IP address: ");
     Serial.println(WiFi.localIP());      
+    return true;
   }
 }
