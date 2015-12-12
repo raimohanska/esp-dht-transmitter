@@ -7,6 +7,7 @@
 
 int magic = 847236345;
 int storageVersion = 1 + magic;
+StaticJsonBuffer<200> jsonBuffer;
 
 temp_hum measurements[sensor_count];
 
@@ -36,10 +37,11 @@ void loop() {
 
   if (state.shouldSend) {
     // Sending previous values
+    JsonArray& output = jsonBuffer.createArray();
     for (int i = 0; i < sensor_count; i++) {
       temp_hum prev = readFromStorage(i);
       if (isValid(prev)) {
-        int success = transmit(i, prev);     
+        encodeJson(i, prev, output);        
       } else {
         Serial.print("Skipping sensor "); Serial.println(i);
         Serial.print("Skipped values "); printValues(prev);
@@ -47,7 +49,9 @@ void loop() {
       prev.age++;
       writeToStorage(i, prev);
     }
+    transmit(output);
     state.shouldSend = false;
+    
   } else {
     delay(1000);
     // Make new measurements
@@ -105,13 +109,21 @@ temp_hum read_values(int sensor_index) {
   return result;
 }
 
-int transmit(int sensor_index, temp_hum th) {
-  transmit(sensor_index, "temperature", th.temp);
-  transmit(sensor_index, "humidity", th.hum);
+int encodeJson(int sensor_index, temp_hum th, JsonArray& output) {
+  encodeJson(sensor_index, "temperature", th.temp, output);
+  encodeJson(sensor_index, "humidity", th.hum, output);
 }
 
-int transmit(int sensor_index, char* tyep, float value) {
-  if (!connectToWifi()) {
+int encodeJson(int sensor_index, char* tyep, float value, JsonArray& output) {
+  JsonObject& root = output.createNestedObject();
+  root["type"] = tyep;
+  root["device"] = device;
+  root["sensor"] = sensor_index;
+  root["value"] = value;
+}
+
+int transmit(JsonArray& output) {
+   if (!connectToWifi()) {
     Serial.println("Wifi connection failed. Trying to restore connectivity");
     ESP.deepSleep(1000000, WAKE_RF_DEFAULT);
     delay(60000);
@@ -119,21 +131,14 @@ int transmit(int sensor_index, char* tyep, float value) {
   if (connectToHost()) {
     client.println("POST /event HTTP/1.0");
     client.println("Content-Type: application/json");
-    StaticJsonBuffer<200> jsonBuffer;
-    JsonObject& root = jsonBuffer.createObject();
-    root["type"] = tyep;
-    root["device"] = device;
-    root["sensor"] = sensor_index;
-    root["value"] = value;
-        
-    client.print("Content-Length: "); client.println(root.measureLength());
+    
+    client.print("Content-Length: "); client.println(output.measureLength());
     
     client.println();
-    root.printTo(client);
+    output.printTo(client);
     
     client.flush();
-    Serial.print("Value for "); Serial.print(tyep);
-    Serial.print(" from sensor "); Serial.print(sensor_index); Serial.println(" sent");
+    Serial.println("Values sent ");
     return true;
   }
   return false;
