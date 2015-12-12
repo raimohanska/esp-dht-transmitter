@@ -22,10 +22,11 @@ const char* device = "my-esp-transmitter";
 #define sensor_count 2
 DHT dht[] = { DHT(2, DHT22), DHT(4, DHT22) };
 
-#define SLEEP_SECS 60  // interval between sending
+#define SLEEP_SECS 1800 // 1800=30min
 
 #define TEMP_SEND_THRESHOLD 1.0
 #define HUM_SEND_THRESHOLD 1.0
+#define MAX_SKIP 3 // Maximum number of skipped sends
 ```
 
 Make sure that `sensor_count` matches to the number of sensors defined on the following line, where you define
@@ -33,3 +34,5 @@ sensor types and their GPIO pins.
 
 I use my `sensor-server` project as the server that accepts the connections
 from my sensors. You may experiment simply with `nc -k -l 5000` as well.
+
+Data is sent to the server using HTTP POST, as a JSON array of measurements.
