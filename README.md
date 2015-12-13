@@ -19,7 +19,7 @@ const int   port = <server port>;
 
 const char* device = "my-esp-transmitter";
 
-#define sensor_count 2
+#define SENSOR_COUNT 2
 DHT dht[] = { DHT(2, DHT22), DHT(4, DHT22) };
 
 #define SLEEP_SECS 1800 // 1800=30min

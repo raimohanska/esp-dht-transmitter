@@ -7,15 +7,16 @@
 
 int magic = 847236345;
 int storageVersion = 1 + magic;
-StaticJsonBuffer<200> jsonBuffer;
+#define BUFFER_SIZE 200 * SENSOR_COUNT
+StaticJsonBuffer<BUFFER_SIZE> jsonBuffer;
 
-temp_hum measurements[sensor_count];
+temp_hum measurements[SENSOR_COUNT];
 
 WiFiClient client;
 
 void setup() {  
   EEPROM.begin(128);
-  for (int i=0; i < sensor_count; i++) {
+  for (int i=0; i < SENSOR_COUNT; i++) {
     dht[i].begin();  
   }
   Serial.begin(115200);
@@ -38,7 +39,7 @@ void loop() {
   if (state.shouldSend) {
     // Sending previous values
     JsonArray& output = jsonBuffer.createArray();
-    for (int i = 0; i < sensor_count; i++) {
+    for (int i = 0; i < SENSOR_COUNT; i++) {
       temp_hum prev = readFromStorage(i);
       if (isValid(prev)) {
         encodeJson(i, prev, output);        
@@ -55,7 +56,7 @@ void loop() {
   } else {
     delay(1000);
     // Make new measurements
-    for (int i = 0; i < sensor_count; i++) {
+    for (int i = 0; i < SENSOR_COUNT; i++) {
       temp_hum prev = readFromStorage(i);
       Serial.print("Previous "); printValues(prev);
       measurements[i] = read_values(i);
@@ -73,7 +74,7 @@ void loop() {
 
   if (state.shouldSend) {
     // found something to send -> store all valid new values for sending
-    for (int i = 0; i < sensor_count; i++) {
+    for (int i = 0; i < SENSOR_COUNT; i++) {
         temp_hum th = measurements[i];
         if (isValid(th) || firstTime) {
           Serial.print("Storing sensor "); Serial.println(i);
@@ -129,16 +130,18 @@ int transmit(JsonArray& output) {
     delay(60000);
   }
   if (connectToHost()) {
+    int len = output.measureLength();
     client.println("POST /event HTTP/1.0");
     client.println("Content-Type: application/json");
     
-    client.print("Content-Length: "); client.println(output.measureLength());
+    client.print("Content-Length: "); client.println(len);
     
     client.println();
     output.printTo(client);
+    output.printTo(Serial);
     
     client.flush();
-    Serial.println("Values sent ");
+    Serial.print("Values sent in "); Serial.print(len); Serial.println(" bytes");
     return true;
   }
   return false;
