@@ -4,7 +4,8 @@
 #include "DHT.h"
 #include "sensor-settings.h"
 #include "esp-dht-transmitter.h"
-
+#define WIFI_RETRY_SECS 60
+#define ONE_SECOND 1000000
 int magic = 847236345;
 int storageVersion = 1 + magic;
 #define BUFFER_SIZE 200 * SENSOR_COUNT
@@ -88,10 +89,10 @@ void loop() {
   client.stop();
   if (state.shouldSend) {
     Serial.println("Short sleep");
-    ESP.deepSleep(1000000, WAKE_RF_DEFAULT);
+    ESP.deepSleep(ONE_SECOND, WAKE_RF_DEFAULT);
   } else {
     Serial.println("Long sleep");
-    ESP.deepSleep(SLEEP_SECS * 1000000, WAKE_RF_DISABLED);
+    ESP.deepSleep(SLEEP_SECS * ONE_SECOND, WAKE_RF_DISABLED);
   }    
   Serial.println("Delaying...");
   delay(SLEEP_SECS * 1000);
@@ -125,8 +126,8 @@ int encodeJson(int sensor_index, char* tyep, float value, JsonArray& output) {
 
 int transmit(JsonArray& output) {
    if (!connectToWifi()) {
-    Serial.println("Wifi connection failed. Trying to restore connectivity");
-    ESP.deepSleep(1000000, WAKE_RF_DEFAULT);
+    Serial.print("Wifi connection failed. Trying to restore connectivity in "); Serial.print(WIFI_RETRY_SECS); Serial.println(" seconds");
+    ESP.deepSleep(WIFI_RETRY_SECS * ONE_SECOND, WAKE_RF_DEFAULT);
     delay(60000);
   }
   if (connectToHost()) {
