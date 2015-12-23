@@ -9,5 +9,7 @@ typedef struct app_state app_state;
 struct app_state {
   int version;
   int shouldSend;
+  int wifiFailures;
+  int connectionFailures;
 };
 

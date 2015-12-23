@@ -6,12 +6,14 @@
 #include "esp-dht-transmitter.h"
 #define WIFI_RETRY_SECS 60
 #define ONE_SECOND 1000000
+
 int magic = 847236345;
-int storageVersion = 1 + magic;
+int storageVersion = 2 + magic;
 #define BUFFER_SIZE 200 * SENSOR_COUNT
 StaticJsonBuffer<BUFFER_SIZE> jsonBuffer;
 
 temp_hum measurements[SENSOR_COUNT];
+app_state state;
 
 WiFiClient client;
 
@@ -27,14 +29,21 @@ void setup() {
 
 
 void loop() {
-  app_state state = readState();  
+  state = readState();  
   int firstTime = (state.version != storageVersion);
   state.version = storageVersion;
   if (firstTime) {
     state.shouldSend = false;
+    state.wifiFailures = 0;
+    state.connectionFailures = 0;
     Serial.println("Storage version mismatch -> first time");
   } else if (state.shouldSend) {
     Serial.println("Sending previous values");
+  } else {
+    Serial.print("Statistics: wifiFailures=");
+    Serial.print(state.wifiFailures);
+    Serial.print(" connectionFailures=");
+    Serial.println(state.connectionFailures);
   }
 
   if (state.shouldSend) {
@@ -55,9 +64,11 @@ void loop() {
     state.shouldSend = false;
     
   } else {
+    Serial.println("Warming up...");
     delay(1000);
     // Make new measurements
     for (int i = 0; i < SENSOR_COUNT; i++) {
+      Serial.print("Sensor "); Serial.println(i);
       temp_hum prev = readFromStorage(i);
       Serial.print("Previous "); printValues(prev);
       measurements[i] = read_values(i);
@@ -128,6 +139,7 @@ int transmit(JsonArray& output) {
    if (!connectToWifi()) {
     Serial.print("Wifi connection failed. Trying to restore connectivity in "); Serial.print(WIFI_RETRY_SECS); Serial.println(" seconds");
     ESP.deepSleep(WIFI_RETRY_SECS * ONE_SECOND, WAKE_RF_DEFAULT);
+    state.wifiFailures++;
     delay(60000);
   }
   if (connectToHost()) {
@@ -144,6 +156,8 @@ int transmit(JsonArray& output) {
     client.flush();
     Serial.print("Values sent in "); Serial.print(len); Serial.println(" bytes");
     return true;
+  } else {
+    state.connectionFailures++;
   }
   return false;
 }
