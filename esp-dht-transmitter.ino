@@ -24,6 +24,9 @@ void setup() {
   }
   Serial.begin(115200);
   Serial.println();
+#ifdef ENABLE_PIN
+  pinMode(ENABLE_PIN, OUTPUT);  
+#endif
 }
 
 
@@ -46,7 +49,9 @@ void loop() {
     Serial.println(state.connectionFailures);
   }
 
-  if (state.shouldSend) {
+  enableProbe(!state.shouldSend);
+
+  if (state.shouldSend) {    
     // Sending previous values
     JsonArray& output = jsonBuffer.createArray();
     for (int i = 0; i < SENSOR_COUNT; i++) {
@@ -81,7 +86,8 @@ void loop() {
         prev.age++;
         writeToStorage(i, prev);
       }
-    }   
+    }  
+    enableProbe(false); 
   }
 
   if (state.shouldSend) {
@@ -108,6 +114,12 @@ void loop() {
   Serial.println("Delaying...");
   delay(SLEEP_SECS * 1000);
   Serial.println("...Done. Starting again");
+}
+
+void enableProbe(int enable) {
+#ifdef ENABLE_PIN
+  digitalWrite(ENABLE_PIN, enable ? LOW : HIGH);
+#endif
 }
 
 int isValid(temp_hum values) {
