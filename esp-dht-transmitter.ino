@@ -62,7 +62,7 @@ void loop() {
         Serial.print("Skipping sensor "); Serial.println(i);
         Serial.print("Skipped values "); printValues(prev);
       }
-      prev.age++;
+      prev.age += SLEEP_SECS;
       writeToStorage(i, prev);
     }
     transmit(output);
@@ -83,7 +83,7 @@ void loop() {
         Serial.println("Sendable");
         state.shouldSend = true;
       } else {
-        prev.age++;
+        prev.age += SLEEP_SECS;
         writeToStorage(i, prev);
       }
     }  
@@ -123,7 +123,7 @@ void enableProbe(int enable) {
 }
 
 int isValid(temp_hum values) {
-  return !isnan(values.hum) && !isnan(values.temp) && values.age <= MAX_SKIP;
+  return !isnan(values.hum) && !isnan(values.temp) && values.age < MAX_SEND_INTERVAL_SECS;
 }
 
 temp_hum read_values(int sensor_index) {
