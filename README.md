@@ -22,15 +22,13 @@ const char* device = "my-esp-transmitter";
 #define SENSOR_COUNT 2
 DHT dht[] = { DHT(2, DHT22), DHT(4, DHT22) };
 
-#define SLEEP_SECS 1800 // 1800=30min
+#define SLEEP_SECS 1800 // 300=5min, 1800=30min
+#define MAX_SEND_INTERVAL_SECS 7200 // Max send interval
 
 #define TEMP_SEND_THRESHOLD 1.0
 #define HUM_SEND_THRESHOLD 1.0
-#define MAX_SKIP 3 // Maximum number of skipped sends
+#define ENABLE_PIN 5 // Use pin x as GND for sensor. Sensor is only enabled when this pin is pulled low by the software.
 ```
-
-Make sure that `sensor_count` matches to the number of sensors defined on the following line, where you define
-sensor types and their GPIO pins.
 
 I use my `sensor-server` project as the server that accepts the connections
 from my sensors. You may experiment simply with `nc -k -l 5000` as well.
