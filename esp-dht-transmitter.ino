@@ -150,8 +150,9 @@ int encodeJson(int sensor_index, char* tyep, float value, JsonArray& output) {
 int transmit(JsonArray& output) {
    if (!connectToWifi()) {
     Serial.print("Wifi connection failed. Trying to restore connectivity in "); Serial.print(WIFI_RETRY_SECS); Serial.println(" seconds");
-    ESP.deepSleep(WIFI_RETRY_SECS * ONE_SECOND, WAKE_RF_DEFAULT);
     state.wifiFailures++;
+    writeState(state);
+    ESP.deepSleep(WIFI_RETRY_SECS * ONE_SECOND, WAKE_RF_DEFAULT);
     delay(60000);
   }
   if (connectToHost()) {
