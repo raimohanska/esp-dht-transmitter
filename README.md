@@ -7,27 +7,28 @@ different GPIO pins.
 Requires [DHT-sensor-library](https://github.com/adafruit/DHT-sensor-library), [ArduinoJson](https://github.com/bblanchon/ArduinoJson)
 and of course the [ESP8266 Arduino IDE](https://github.com/esp8266/Arduino) extension.
 
-Before opening this in Arduino IDE, create a file `sensor-settings.h` with 
-your sensor settings, including Wifi settings. Like this:
+Before opening this in Arduino IDE, create a file `settings.h` with 
+your sensor, WiFi and server settings. Like this:
 
 ```
-const char* ssid     = "<my wifi ssid>";
-const char* password = "<my wifi password>";
+#define WIFI_SSID "<my wifi ssid>"
+#define WIFI_SSID "mohkoverkko"
 
-const char* host = "<server ip>";
-const int   port = <server port>;
-
-const char* device = "my-esp-transmitter";
+#define SERVER_HOST "<server hostname>"
+#define SERVER_PORT 5080
+#define DEVICE_NAME "mydevice1"
 
 #define SENSOR_COUNT 2
 DHT dht[] = { DHT(2, DHT22), DHT(4, DHT22) };
 
-#define SLEEP_SECS 1800 // 300=5min, 1800=30min
+#define SLEEP_SECS 300 // 300=5min, 1800=30min
 #define MAX_SEND_INTERVAL_SECS 7200 // Max send interval
 
 #define TEMP_SEND_THRESHOLD 1.0
 #define HUM_SEND_THRESHOLD 1.0
-#define ENABLE_PIN 5 // Use pin x as GND for sensor. Sensor is only enabled when this pin is pulled low by the software.
+
+#define ENABLE_PIN 5 // Use pin _ as enabling pin for sensor
+#define ENABLE_LEVEL LOW // Set pin _ to ___ when enabled
 ```
 
 I use my `sensor-server` project as the server that accepts the connections

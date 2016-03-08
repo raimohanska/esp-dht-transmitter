@@ -2,7 +2,7 @@
 #include <ESP8266WiFi.h>
 #include <ArduinoJson.h>
 #include "DHT.h"
-#include "sensor-settings.h"
+#include "settings.h"
 #include "esp-dht-transmitter.h"
 #define WIFI_RETRY_SECS 60
 #define ONE_SECOND 1000000
@@ -118,7 +118,7 @@ void loop() {
 
 void enableProbe(int enable) {
 #ifdef ENABLE_PIN
-  digitalWrite(ENABLE_PIN, enable ? LOW : HIGH);
+  digitalWrite(ENABLE_PIN, enable ? ENABLE_LEVEL : !ENABLE_LEVEL);
 #endif
 }
 
@@ -142,7 +142,7 @@ int encodeJson(int sensor_index, temp_hum th, JsonArray& output) {
 int encodeJson(int sensor_index, char* tyep, float value, JsonArray& output) {
   JsonObject& root = output.createNestedObject();
   root["type"] = tyep;
-  root["device"] = device;
+  root["device"] = DEVICE_NAME;
   root["sensor"] = sensor_index;
   root["value"] = value;
 }
@@ -194,11 +194,11 @@ float readTemperature(int sensor_index) {
 
 int connectToHost() {
   Serial.print("connecting to ");
-  Serial.print(host);
+  Serial.print(SERVER_HOST);
   Serial.print(":");
-  Serial.println(port);
+  Serial.println(SERVER_PORT);
 
-  if (!client.connect(host, port)) {
+  if (!client.connect(SERVER_HOST, SERVER_PORT)) {
     Serial.println("connection failed");
     return false;
   }
@@ -255,10 +255,10 @@ int connectToWifi() {
   int timeoutMs = 20000;
   if (WiFi.status() != WL_CONNECTED) {
     Serial.print("Connecting to ");
-    Serial.println(ssid);
+    Serial.println(WIFI_SSID);
   
     WiFi.mode(WIFI_AP_STA);
-    WiFi.begin(ssid, password);
+    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 
     int elapsed = 0;
     int d = 100;
