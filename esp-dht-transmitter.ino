@@ -17,7 +17,7 @@ char device_name[32] = "";
 
 /* hostname for mDNS. Should work at least on windows. Try http://raimo.local */
 const char *myHostname = "raimo";
-const char *softAP_ssid = "RAIMO UNIT SETUP";
+const char *softAP_ssid = "RAIMO SENSOR SETUP";
 
 int magic = 847236345;
 int storageVersion = 2 + magic;
@@ -48,7 +48,8 @@ void setup() {
 
 void loop() {
   if (!hasWifiCredentials()) {
-    webserverLoop();    
+    webserverLoop();
+    yield();    
   } else {
     measureOrTransmit();
   }
@@ -66,10 +67,7 @@ void measureOrTransmit() {
   } else if (state.shouldSend) {
     Serial.println("Sending previous values");
   } else {
-    Serial.print("Statistics: wifiFailures=");
-    Serial.print(state.wifiFailures);
-    Serial.print(" connectionFailures=");
-    Serial.println(state.connectionFailures);
+    Serial.println(String("Statistics: wifiFailures=") + state.wifiFailures + " connectionFailures=" + state.connectionFailures);
   }
 
   enableProbe(!state.shouldSend);
@@ -211,7 +209,7 @@ float readTemperature(int sensor_index) {
 }
 
 int connectToHost() {
-  Serial.print(String("connecting to ") + host + ":" + port);
+  Serial.println(String("connecting to ") + host + ":" + port);
   
   if (!client.connect(host, String(port).toInt())) {
     Serial.println("connection failed");

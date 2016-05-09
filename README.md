@@ -11,13 +11,6 @@ Before opening this in Arduino IDE, create a file `settings.h` with
 your sensor, WiFi and server settings. Like this:
 
 ```
-#define WIFI_SSID "<my wifi ssid>"
-#define WIFI_SSID "mohkoverkko"
-
-#define SERVER_HOST "<server hostname>"
-#define SERVER_PORT 5080
-#define DEVICE_NAME "mydevice1"
-
 #define SENSOR_COUNT 2
 DHT dht[] = { DHT(2, DHT22), DHT(4, DHT22) };
 
@@ -35,3 +28,7 @@ I use my `sensor-server` project as the server that accepts the connections
 from my sensors. You may experiment simply with `nc -k -l 5000` as well.
 
 Data is sent to the server using HTTP POST, as a JSON array of measurements.
+
+When the device starts for the first time, it creates a Wifi access point "RAIMO SENSOR SETUP".
+Joining this network should give you a pop-up web page that allows you to set your
+Wifi credentials, server address and device name.

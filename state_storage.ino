@@ -40,5 +40,6 @@ app_state readState()
 
 int memoryPos(int index) {
   temp_hum value;
+  app_state state;
   return stateStorageOffset + sizeof(state) + index * sizeof(value);
 }
