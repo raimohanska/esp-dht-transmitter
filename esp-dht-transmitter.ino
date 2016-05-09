@@ -7,6 +7,18 @@
 #define WIFI_RETRY_SECS 60
 #define ONE_SECOND 1000000
 
+
+/* Don't set this wifi credentials. They are configurated at runtime and stored on EEPROM */
+char ssid[32] = "";
+char password[32] = "";
+char host[32] = "";
+char port[32] = "5080";
+char device_name[32] = "";
+
+/* hostname for mDNS. Should work at least on windows. Try http://raimo.local */
+const char *myHostname = "raimo";
+const char *softAP_ssid = "RAIMO UNIT SETUP";
+
 int magic = 847236345;
 int storageVersion = 2 + magic;
 #define BUFFER_SIZE 200 * SENSOR_COUNT
@@ -24,14 +36,25 @@ void setup() {
   }
   Serial.begin(115200);
   Serial.println();
+  Serial.println("Starting");
+  loadCredentials();
+  if (!hasWifiCredentials()) {
+    webserverSetup();    
+  }
 #ifdef ENABLE_PIN
   pinMode(ENABLE_PIN, OUTPUT);  
 #endif
 }
 
-
-
 void loop() {
+  if (!hasWifiCredentials()) {
+    webserverLoop();    
+  } else {
+    measureOrTransmit();
+  }
+}
+
+void measureOrTransmit() {
   state = readState();  
   int firstTime = (state.version != storageVersion);
   state.version = storageVersion;
@@ -142,14 +165,14 @@ int encodeJson(int sensor_index, temp_hum th, JsonArray& output) {
 int encodeJson(int sensor_index, char* tyep, float value, JsonArray& output) {
   JsonObject& root = output.createNestedObject();
   root["type"] = tyep;
-  root["device"] = DEVICE_NAME;
+  root["device"] = device_name;
   root["sensor"] = sensor_index;
   root["value"] = value;
 }
 
 int transmit(JsonArray& output) {
    if (!connectToWifi()) {
-    Serial.print("Wifi connection failed. Trying to restore connectivity in "); Serial.print(WIFI_RETRY_SECS); Serial.println(" seconds");
+    Serial.println(String("Wifi connection failed. Trying to restore connectivity in ") + WIFI_RETRY_SECS + " seconds");
     state.wifiFailures++;
     writeState(state);
     ESP.deepSleep(WIFI_RETRY_SECS * ONE_SECOND, WAKE_RF_DEFAULT);
@@ -180,12 +203,7 @@ float readHumidity(int sensor_index) {
 }
 
 float printValues(temp_hum values) {
-  Serial.print("Humidity: ");
-  Serial.print(values.hum);
-  Serial.print("% ,Temperature: ");
-  Serial.print(values.temp);
-  Serial.print("C, age: ");
-  Serial.println(values.age);
+  Serial.println(String("Humidity: ") + values.hum + "% ,Temperature: " + values.temp + "C, age: " + values.age);
 }
 
 float readTemperature(int sensor_index) {
@@ -193,12 +211,9 @@ float readTemperature(int sensor_index) {
 }
 
 int connectToHost() {
-  Serial.print("connecting to ");
-  Serial.print(SERVER_HOST);
-  Serial.print(":");
-  Serial.println(SERVER_PORT);
-
-  if (!client.connect(SERVER_HOST, SERVER_PORT)) {
+  Serial.print(String("connecting to ") + host + ":" + port);
+  
+  if (!client.connect(host, String(port).toInt())) {
     Serial.println("connection failed");
     return false;
   }
@@ -254,11 +269,10 @@ app_state readState()
 int connectToWifi() {  
   int timeoutMs = 20000;
   if (WiFi.status() != WL_CONNECTED) {
-    Serial.print("Connecting to ");
-    Serial.println(WIFI_SSID);
+    Serial.println(String("Connecting to ") + ssid);
   
-    WiFi.mode(WIFI_AP_STA);
-    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+    WiFi.mode(WIFI_STA);
+    WiFi.begin(ssid, password);
 
     int elapsed = 0;
     int d = 100;
