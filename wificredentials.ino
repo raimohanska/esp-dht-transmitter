@@ -1,6 +1,5 @@
 /** Load WLAN credentials from EEPROM */
 void loadCredentials() {
-  EEPROM.begin(512);
   EEPROM.get(0, ssid);
   EEPROM.get(0+sizeof(ssid), password);
   EEPROM.get(0+sizeof(ssid)+sizeof(password), host);

@@ -30,7 +30,7 @@ app_state state;
 WiFiClient client;
 
 void setup() {  
-  EEPROM.begin(128);
+  EEPROM.begin(512);
   for (int i=0; i < SENSOR_COUNT; i++) {
     dht[i].begin();  
   }
@@ -220,50 +220,6 @@ int connectToHost() {
 
   Serial.println("Connected");
   return true;
-}
-
-int memoryPos(int index) {
-  temp_hum value;
-  app_state state;
-  return sizeof(state) + index * sizeof(value);
-}
-
-void writeToStorage(int index, temp_hum value)
-{
-   int ee = memoryPos(index);
-   byte* p = (byte*)(void*)&value;
-   for (int i = 0; i < sizeof(value); i++)
-       EEPROM.write(ee++, *p++);
-   EEPROM.commit();
-}
-
-temp_hum readFromStorage(int index)
-{
-   temp_hum value;
-   int ee = memoryPos(index);
-   byte* p = (byte*)(void*)&value;
-   for (int i = 0; i < sizeof(value); i++)
-       *p++ = EEPROM.read(ee++);
-   return value;
-}
-
-void writeState(app_state value)
-{
-   int ee = 0;
-   byte* p = (byte*)(void*)&value;
-   for (int i = 0; i < sizeof(value); i++)
-       EEPROM.write(ee++, *p++);
-   EEPROM.commit();
-}
-
-app_state readState()
-{
-   int ee = 0;
-   app_state value;
-   byte* p = (byte*)(void*)&value;
-   for (int i = 0; i < sizeof(value); i++)
-       *p++ = EEPROM.read(ee++);
-   return value;
 }
 
 int connectToWifi() {  
